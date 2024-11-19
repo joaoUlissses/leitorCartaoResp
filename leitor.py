@@ -3,7 +3,7 @@ import numpy as np
 from dados import GABARITO, questoes_coordenadas
 
 # Parâmetros gerais
-ARQUIVO_IMAGEM = 'cartao3.jpg'
+ARQUIVO_IMAGEM = 'cartao2.jpg'
 NUM_QUESTOES = 50
 fator_zoom = 1.0
 zoom_incremento = 0.01
@@ -37,6 +37,7 @@ def calcular_nota(imagem_binaria, questoes_coordenadas, gabarito):
     for i, questao_coordenadas in enumerate(questoes_coordenadas):
         preenchidos = []  # Lista para armazenar as alternativas marcadas
         maior_preto = 0
+        Npreenchido = 0  # Contador de alternativas preenchidas
 
         # Verifica as alternativas de cada questão
         for j, (x, y, w, h) in enumerate(questao_coordenadas):
@@ -47,14 +48,18 @@ def calcular_nota(imagem_binaria, questoes_coordenadas, gabarito):
             if num_pretos > maior_preto:
                 maior_preto = num_pretos
                 preenchidos = [j]  # Marca a alternativa encontrada
+                Npreenchido = 1  # Inicializa o contador de alternativas preenchidas
             elif num_pretos == maior_preto:
                 preenchidos.append(j)  # Caso haja mais de uma alternativa marcada
+                Npreenchido += 1  # Incrementa o contador
 
-        alternativas_marcadas[i] = preenchidos[0] if len(preenchidos) == 1 else -1  # Se mais de uma alternativa estiver marcada, marca como erro
+        # Se mais de uma alternativa estiver marcada, marca como erro
+        alternativas_marcadas[i] = preenchidos[0] if Npreenchido == 1 else -1
 
         alternativa_certa = ord(gabarito[i]) - ord('A')
 
         if alternativas_marcadas[i] != -1:
+            # Se houver apenas uma alternativa marcada, verifica se é a correta
             if alternativas_marcadas[i] == alternativa_certa:
                 nota += 1  # Conta como certa
             print(f'Questão {i + 1}: Alternativa marcada: {chr(alternativas_marcadas[i] + ord("A"))}')
@@ -62,6 +67,7 @@ def calcular_nota(imagem_binaria, questoes_coordenadas, gabarito):
             print(f'Questão {i + 1}: Nenhuma alternativa válida ou mais de uma marcada.')
 
     return nota
+
 
 def desenhar_resultados(imagem, questoes_coordenadas, alternativas_marcadas, gabarito):
     """Desenha os resultados na imagem."""
@@ -123,6 +129,7 @@ while True:
         imagem_resultado = desenhar_resultados(imagem_cortada, questoes_coordenadas, alternativas_marcadas, GABARITO)
         cv2.imshow("Resultados", imagem_resultado)
         cv2.imwrite("resultado.jpg", imagem_resultado)
+    elif tecla == ord('z'):
         break
     elif tecla == ord('a'):
         angulo += 2
