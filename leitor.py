@@ -3,7 +3,7 @@ import numpy as np
 from dados import GABARITO, questoes_coordenadas
 
 # Parâmetros gerais
-ARQUIVO_IMAGEM = 'cartao2.jpg'
+ARQUIVO_IMAGEM = 'cartao3.jpg'
 NUM_QUESTOES = 50
 fator_zoom = 1.0
 zoom_incremento = 0.01
@@ -43,7 +43,7 @@ def calcular_nota(imagem_binaria, questoes_coordenadas, gabarito):
         for j, (x, y, w, h) in enumerate(questao_coordenadas):
             regiao = imagem_binaria[y:y+h, x:x+w]
             num_pretos = cv2.countNonZero(regiao)
-
+    
             # Se a quantidade de pixels pretos for significativa, considera como marcada
             if num_pretos > maior_preto:
                 maior_preto = num_pretos
@@ -98,18 +98,22 @@ coordenadas_cantos = [
     (40, imagem_cortada.shape[0] - 61, 26),  # Inferior esquerdo
     (imagem_cortada.shape[1] - 50, imagem_cortada.shape[0] - 58, 26)  # Inferior direito
 ]
-
 while True:
-    # Aplica a rotação
+    # Aplica a rotação e zoom na imagem binária
     rotacao_matriz = cv2.getRotationMatrix2D((imagem_cortada.shape[1] // 2, imagem_cortada.shape[0] // 2), angulo, fator_zoom)
-    imagem_rotacionada = cv2.warpAffine(imagem_binaria, rotacao_matriz, (imagem_cortada.shape[1], imagem_cortada.shape[0]))
+    imagem_rotacionada_binaria = cv2.warpAffine(imagem_binaria, rotacao_matriz, (imagem_cortada.shape[1], imagem_cortada.shape[0]))
+    imagem_rotacionada_cortada = cv2.warpAffine(imagem_cortada, rotacao_matriz, (imagem_cortada.shape[1], imagem_cortada.shape[0]))
 
-    # Aplica os deslocamentos na imagem
-    imagem_rotacionada = np.roll(imagem_rotacionada, deslocamento_vertical, axis=0)
-    imagem_rotacionada = np.roll(imagem_rotacionada, deslocamento_horizontal, axis=1)
+    # Aplica os deslocamentos na imagem binária
+    imagem_rotacionada_binaria = np.roll(imagem_rotacionada_binaria, deslocamento_vertical, axis=0)
+    imagem_rotacionada_binaria = np.roll(imagem_rotacionada_binaria, deslocamento_horizontal, axis=1)
+
+    # Aplica os deslocamentos na imagem cortada
+    imagem_rotacionada_cortada = np.roll(imagem_rotacionada_cortada, deslocamento_vertical, axis=0)
+    imagem_rotacionada_cortada = np.roll(imagem_rotacionada_cortada, deslocamento_horizontal, axis=1)
 
     # Cria uma cópia da imagem para exibição
-    imagem_exibicao = imagem_rotacionada.copy()
+    imagem_exibicao = imagem_rotacionada_binaria.copy()
 
     # Desenha retângulos **fixos** na tela (sem relação com a imagem)
     for questao_coordenadas in questoes_coordenadas:
@@ -122,11 +126,13 @@ while True:
     cv2.imshow("Imagem com Retângulos Fixos", imagem_exibicao)
     tecla = cv2.waitKey(30)
 
-    if tecla == ord('q'): 
-        nota = calcular_nota(imagem_rotacionada, questoes_coordenadas, GABARITO)
+    if tecla == ord('q'):
+        # Calcula a nota com base na imagem binária ajustada
+        nota = calcular_nota(imagem_rotacionada_binaria, questoes_coordenadas, GABARITO)
         print(f"Nota final: {nota}/{NUM_QUESTOES}")
 
-        imagem_resultado = desenhar_resultados(imagem_cortada, questoes_coordenadas, alternativas_marcadas, GABARITO)
+        # Desenha os resultados na imagem original cortada ajustada
+        imagem_resultado = desenhar_resultados(imagem_rotacionada_cortada, questoes_coordenadas, alternativas_marcadas, GABARITO)
         cv2.imshow("Resultados", imagem_resultado)
         cv2.imwrite("resultado.jpg", imagem_resultado)
     elif tecla == ord('z'):
