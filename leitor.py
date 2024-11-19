@@ -5,10 +5,12 @@ from dados import GABARITO, questoes_coordenadas
 # Parâmetros gerais
 ARQUIVO_IMAGEM = 'cartao3.jpg'
 NUM_QUESTOES = 50
-
-
+fator_zoom = 1.0
+zoom_incremento = 0.01
+angulo = 0
+deslocamento_vertical = 0
+deslocamento_horizontal = 0
 alternativas_marcadas = [-1] * NUM_QUESTOES
-
 
 def preprocessar_imagem(imagem):
     """Pré-processa a imagem para binarização."""
@@ -33,27 +35,31 @@ def calcular_nota(imagem_binaria, questoes_coordenadas, gabarito):
     """Calcula a nota com base nas alternativas marcadas."""
     nota = 0
     for i, questao_coordenadas in enumerate(questoes_coordenadas):
-        preenchido = -1
+        preenchidos = []  # Lista para armazenar as alternativas marcadas
         maior_preto = 0
 
+        # Verifica as alternativas de cada questão
         for j, (x, y, w, h) in enumerate(questao_coordenadas):
             regiao = imagem_binaria[y:y+h, x:x+w]
             num_pretos = cv2.countNonZero(regiao)
 
+            # Se a quantidade de pixels pretos for significativa, considera como marcada
             if num_pretos > maior_preto:
                 maior_preto = num_pretos
-                preenchido = j
+                preenchidos = [j]  # Marca a alternativa encontrada
+            elif num_pretos == maior_preto:
+                preenchidos.append(j)  # Caso haja mais de uma alternativa marcada
 
-        alternativas_marcadas[i] = preenchido
+        alternativas_marcadas[i] = preenchidos[0] if len(preenchidos) == 1 else -1  # Se mais de uma alternativa estiver marcada, marca como erro
+
         alternativa_certa = ord(gabarito[i]) - ord('A')
 
-        if preenchido != -1:
-            print(f'Questão {i + 1}: Alternativa marcada: {chr(preenchido + ord("A"))}')
+        if alternativas_marcadas[i] != -1:
+            if alternativas_marcadas[i] == alternativa_certa:
+                nota += 1  # Conta como certa
+            print(f'Questão {i + 1}: Alternativa marcada: {chr(alternativas_marcadas[i] + ord("A"))}')
         else:
-            print(f'Questão {i + 1}: Nenhuma alternativa marcada.')
-
-        if preenchido == alternativa_certa:
-            nota += 1
+            print(f'Questão {i + 1}: Nenhuma alternativa válida ou mais de uma marcada.')
 
     return nota
 
@@ -64,7 +70,6 @@ def desenhar_resultados(imagem, questoes_coordenadas, alternativas_marcadas, gab
             cor = (0, 255, 0) if j == alternativas_marcadas[i] else (0, 0, 255)
             cv2.rectangle(imagem, (x, y), (x+w, y+h), cor, 2)
     return imagem
-
 # Carrega a imagem
 imagem = cv2.imread(ARQUIVO_IMAGEM)
 if imagem is None:
@@ -80,11 +85,7 @@ imagem_cortada = imagem[inicio_corte:fim_corte, 0:largura]
 # Pré-processa a imagem cortada
 imagem_binaria = preprocessar_imagem(imagem_cortada)
 
-# Controle de rotação e deslocamento
-angulo = 0
-deslocamento_vertical = 0
-deslocamento_horizontal = 0
-
+# Controle de rotação, zoom e deslocamento
 coordenadas_cantos = [
     (40, 25, 26),  # Superior esquerdo
     (imagem_cortada.shape[1] - 48, 29, 26),  # Superior direito
@@ -94,7 +95,7 @@ coordenadas_cantos = [
 
 while True:
     # Aplica a rotação
-    rotacao_matriz = cv2.getRotationMatrix2D((imagem_cortada.shape[1] // 2, imagem_cortada.shape[0] // 2), angulo, 1)
+    rotacao_matriz = cv2.getRotationMatrix2D((imagem_cortada.shape[1] // 2, imagem_cortada.shape[0] // 2), angulo, fator_zoom)
     imagem_rotacionada = cv2.warpAffine(imagem_binaria, rotacao_matriz, (imagem_cortada.shape[1], imagem_cortada.shape[0]))
 
     # Aplica os deslocamentos na imagem
@@ -127,6 +128,10 @@ while True:
         angulo += 2
     elif tecla == ord('d'):
         angulo -= 2
+    elif tecla == ord('w'):  # Tecla para zoom in
+        fator_zoom += zoom_incremento
+    elif tecla == ord('s'):  # Tecla para zoom out
+        fator_zoom -= zoom_incremento
     elif tecla == ord('i'):
         deslocamento_vertical -= 2
     elif tecla == ord('k'):
